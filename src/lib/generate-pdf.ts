@@ -11,82 +11,100 @@ interface SafetyPlanData {
   safetyMeasures: Array<{ id: string; value: string }>;
 }
 
-const DESCRIPTIONS = {
-  'WARNING SIGNS': 'What thoughts, mood, or behavior might indicate a crisis is developing?',
-  'INTERNAL COPING STRATEGIES': 'Things I can do to take my mind off my problems without contacting another person:',
-  'PEOPLE AND SOCIAL SETTINGS': 'People and places that provide distraction and support:',
-  'PEOPLE I CAN ASK FOR HELP': 'People I can reach out to when in crisis:',
-  'PROFESSIONALS I CAN CONTACT': 'Professional resources and crisis hotlines:',
-  'MAKING THE ENVIRONMENT SAFER': 'Steps to make my environment safer:'
+interface PlanItem {
+  id: string;
+  value?: string;
+  name?: string;
+  contact?: string;
+  phone?: string;
+}
+
+// Make the DESCRIPTIONS keys match exactly what we'll look up
+const DESCRIPTIONS: Record<string, string> = {
+  'STEP 1: WARNING SIGNS': 'What thoughts, mood, or behavior might indicate a crisis is developing?',
+  'STEP 2: INTERNAL COPING STRATEGIES': 'Things I can do to take my mind off my problems without contacting another person:',
+  'STEP 3: PEOPLE AND SOCIAL SETTINGS': 'People and places that provide distraction and support:',
+  'STEP 4: PEOPLE I CAN ASK FOR HELP': 'People I can reach out to when in crisis:',
+  'STEP 5: PROFESSIONALS I CAN CONTACT': 'Professional resources and crisis hotlines:',
+  'STEP 6: MAKING THE ENVIRONMENT SAFER': 'Steps to make my environment safer:'
 };
 
 export const generateSafetyPlanPDF = (data: SafetyPlanData) => {
   const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.width;
+  const margin = 14;
   
-  // Add header
-  doc.setFontSize(28);
+  // Add header with better spacing
+  doc.setFontSize(24);
   doc.setTextColor(23, 85, 166); // Stanley-Brown blue
-  doc.text('BAUER LABS SAFETY PLAN', doc.internal.pageSize.width / 2, 25, { align: 'center' });
+  doc.text('BAUER LABS SAFETY PLAN', pageWidth / 2, 20, { align: 'center' });
   
-  // Helper function for sections
-  const addSection = (title: string, y: number, items: any[], format?: string) => {
+  // Helper function for sections with improved spacing
+  const addSection = (title: string, y: number, items: PlanItem[], format?: string) => {
     // Section header
-    doc.setFontSize(14);
+    doc.setFontSize(12);
     doc.setTextColor(255, 255, 255);
     doc.setFillColor(23, 85, 166);
-    doc.rect(14, y, doc.internal.pageSize.width - 28, 8, 'F');
-    doc.text(title, 16, y + 6);
+    doc.rect(margin, y, pageWidth - (margin * 2), 7, 'F');
+    doc.text(title, margin + 2, y + 5);
     
     // Section description
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     doc.setTextColor(80, 80, 80);
-    const description = DESCRIPTIONS[title.split(': ')[1]];
-    doc.text(description, 20, y + 16);
+    const description = DESCRIPTIONS[title] || ''; // Safe access with fallback
+    doc.text(description, margin + 2, y + 12);
     
-    // Section content
-    doc.setFontSize(12);
+    // Section content with better spacing
+    doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
     
-    let currentY = y + 24;
-    items.forEach((item, index) => {
+    let currentY = y + 18;
+    items.forEach((item, idx) => {
       if (format === 'contact') {
-        doc.text(`${index + 1}. Name: ${item.name}`, 20, currentY);
-        doc.text(`   Contact: ${item.contact}`, 20, currentY + 5);
+        doc.text(`${idx + 1}. Name: ${item.name}`, margin + 2, currentY);
+        doc.text(`   Contact: ${item.contact}`, margin + 2, currentY + 5);
         currentY += 12;
       } else if (format === 'professional') {
-        doc.text(`${index + 1}. Name: ${item.name}`, 20, currentY);
-        doc.text(`   Phone: ${item.phone}`, 20, currentY + 5);
+        doc.text(`${idx + 1}. Name: ${item.name}`, margin + 2, currentY);
+        doc.text(`   Phone: ${item.phone}`, margin + 2, currentY + 5);
         currentY += 12;
       } else {
-        doc.text(`${index + 1}. ${item.value}`, 20, currentY);
-        currentY += 8;
+        doc.text(`${idx + 1}. ${item.value}`, margin + 2, currentY);
+        currentY += 7;
       }
     });
 
     // Add crisis line for professionals section
     if (title.includes('PROFESSIONALS')) {
-      doc.text('National Crisis Line: 1-800-273-8255 (TALK)', 20, currentY + 5);
-      currentY += 12;
+      doc.text('National Crisis Line: 1-800-273-8255 (TALK)', margin + 2, currentY + 3);
+      currentY += 8;
     }
     
-    return currentY + 8;
+    return currentY + 5;
   };
 
-  // Add all sections
-  let yPosition = 35;
+  // Distribute sections evenly on the page
+  let yPosition = 30;
   
-  yPosition = addSection('STEP 1: WARNING SIGNS', yPosition, data.warningSteps);
-  yPosition = addSection('STEP 2: INTERNAL COPING STRATEGIES', yPosition, data.copingStrategies);
-  yPosition = addSection('STEP 3: PEOPLE AND SOCIAL SETTINGS', yPosition, data.socialSettings);
-  yPosition = addSection('STEP 4: PEOPLE I CAN ASK FOR HELP', yPosition, data.supportContacts, 'contact');
-  yPosition = addSection('STEP 5: PROFESSIONALS I CAN CONTACT', yPosition, data.professionals, 'professional');
-  yPosition = addSection('STEP 6: MAKING THE ENVIRONMENT SAFER', yPosition, data.safetyMeasures);
+  // Add sections
+  const sections = [
+    { title: 'STEP 1: WARNING SIGNS', data: data.warningSteps },
+    { title: 'STEP 2: INTERNAL COPING STRATEGIES', data: data.copingStrategies },
+    { title: 'STEP 3: PEOPLE AND SOCIAL SETTINGS', data: data.socialSettings },
+    { title: 'STEP 4: PEOPLE I CAN ASK FOR HELP', data: data.supportContacts, format: 'contact' },
+    { title: 'STEP 5: PROFESSIONALS I CAN CONTACT', data: data.professionals, format: 'professional' },
+    { title: 'STEP 6: MAKING THE ENVIRONMENT SAFER', data: data.safetyMeasures }
+  ];
 
-  // Add footer
+  sections.forEach(section => {
+    yPosition = addSection(section.title, yPosition, section.data, section.format);
+  });
+  
+  // Add footer with better positioning
   const footerText = '© 2024 BAUER LABS Crisis Response Platform - Confidential Safety Plan';
-  doc.setFontSize(10);
+  doc.setFontSize(8);
   doc.setTextColor(128, 128, 128);
-  doc.text(footerText, doc.internal.pageSize.width / 2, doc.internal.pageSize.height - 10, { align: 'center' });
+  doc.text(footerText, pageWidth / 2, 280, { align: 'center' });
 
   return doc;
 };
